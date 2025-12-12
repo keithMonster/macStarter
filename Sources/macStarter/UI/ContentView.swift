@@ -130,9 +130,46 @@ struct ContentView: View {
     }
     
     private func handleKeyDown(_ event: NSEvent) -> Bool {
+        let apps = flatAppList
+        guard !apps.isEmpty else { return false }
+        
+        // Find current index
+        let currentIndex = apps.firstIndex { $0.id == selectedAppId } ?? -1
+        var nextIndex = currentIndex
+        
         // Escape Handling to hide window
         if event.keyCode == 53 { // ESC
             NSApp.hide(nil)
+            return true
+        }
+        
+        // Approximate column count for grid navigation
+        // Window width ~800, item width ~100+spacing -> approx 6-7 items per row
+        // Ideally we calculated this dynamically, but fixed estimate is okay for MVP
+        let columnsCount = 6 
+        switch event.keyCode {
+        case 123: // Left
+            nextIndex = max(0, currentIndex - 1)
+        case 124: // Right
+            nextIndex = min(apps.count - 1, currentIndex + 1)
+        case 125: // Down
+            nextIndex = min(apps.count - 1, currentIndex + columnsCount)
+        case 126: // Up
+            nextIndex = max(0, currentIndex - columnsCount)
+        case 36: // Enter
+            if let selected = selectedAppId, let app = apps.first(where: { $0.id == selected }) {
+                launchApp(app)
+                return true
+            }
+        default:
+            return false
+        }
+        if nextIndex != currentIndex {
+            // Clamp roughly
+            if nextIndex < 0 { nextIndex = 0 }
+            if nextIndex >= apps.count { nextIndex = apps.count - 1 }
+            
+            selectedAppId = apps[nextIndex].id
             return true
         }
         
