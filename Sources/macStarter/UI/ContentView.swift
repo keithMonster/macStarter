@@ -52,25 +52,27 @@ struct ContentView: View {
                         .font(.system(size: 24))
                         .focused($isSearchFocused)
                 }
-                .padding(16)
+                .padding(12)
                 .background(Color.white.opacity(0.15))
                 .cornerRadius(16)
                 .padding(.horizontal, 24)
-                .padding(.top, 32)
+                .padding(.top, 24)
                 .padding(.bottom, 24)
                 
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 24) {
-                        ForEach(displayApps, id: \.section) { section in
+                        ForEach(Array(displayApps.enumerated()), id: \.element.section) { index, section in
                             if !section.apps.isEmpty {
-                                VStack(alignment: .leading, spacing: 12) {
-                                    Text(section.section)
-                                        .font(.title2)
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(.white.opacity(0.8))
-                                        .padding(.horizontal, 24)
+                                VStack(alignment: .leading, spacing: 8) {
+                                    // Remove text headers, replace with Divider for subsequent sections
+                                    if index > 0 {
+                                        Divider()
+                                            .background(Color.white.opacity(0.1))
+                                            .padding(.horizontal, 24)
+                                            .padding(.bottom, 8)
+                                    }
                                     
-                                    LazyVGrid(columns: columns, spacing: 24) {
+                                    LazyVGrid(columns: columns, spacing: 16) {
                                         ForEach(section.apps) { app in
                                             AppItemView(
                                                 app: app,
@@ -94,6 +96,11 @@ struct ContentView: View {
                     .padding(.bottom, 40)
                 }
             }
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+            )
             .onChange(of: selectedAppId) { newId in
                 if let newId = newId {
                     withAnimation {
@@ -123,48 +130,9 @@ struct ContentView: View {
     }
     
     private func handleKeyDown(_ event: NSEvent) -> Bool {
-        let apps = flatAppList
-        guard !apps.isEmpty else { return false }
-        
-        // Find current index
-        let currentIndex = apps.firstIndex { $0.id == selectedAppId } ?? -1
-        var nextIndex = currentIndex
-        
         // Escape Handling to hide window
         if event.keyCode == 53 { // ESC
             NSApp.hide(nil)
-            return true
-        }
-        
-        // Approximate column count for grid navigation
-        // Window width ~800, item width ~100+spacing -> approx 6-7 items per row
-        // Ideally we calculated this dynamically, but fixed estimate is okay for MVP
-        let columnsCount = 6 
-        
-        switch event.keyCode {
-        case 123: // Left
-            nextIndex = max(0, currentIndex - 1)
-        case 124: // Right
-            nextIndex = min(apps.count - 1, currentIndex + 1)
-        case 125: // Down
-            nextIndex = min(apps.count - 1, currentIndex + columnsCount)
-        case 126: // Up
-            nextIndex = max(0, currentIndex - columnsCount)
-        case 36: // Enter
-            if let selected = selectedAppId, let app = apps.first(where: { $0.id == selected }) {
-                launchApp(app)
-                return true
-            }
-        default:
-            return false
-        }
-        
-        if nextIndex != currentIndex {
-            // Clamp roughly
-            if nextIndex < 0 { nextIndex = 0 }
-            if nextIndex >= apps.count { nextIndex = apps.count - 1 }
-            
-            selectedAppId = apps[nextIndex].id
             return true
         }
         
