@@ -21,8 +21,13 @@ class LauncherWindow: NSPanel {
         visualEffect.material = .hudWindow
         visualEffect.frame = contentRect
         visualEffect.autoresizingMask = [.width, .height]
+        visualEffect.wantsLayer = true
+        visualEffect.layer?.cornerRadius = 20
+        visualEffect.layer?.masksToBounds = true
         
         self.contentView = visualEffect
+        self.isOpaque = false
+        self.backgroundColor = .clear
     }
     
     // Allow panel to become key window on click/keypress even if .nonactivatingPanel
