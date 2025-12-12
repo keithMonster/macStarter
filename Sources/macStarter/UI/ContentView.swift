@@ -31,7 +31,7 @@ struct ContentView: View {
                 HStack {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.gray)
-                    TextField("Search apps (Pinyin support)...", text: $searchText)
+                    TextField("搜索...", text: $searchText)
                         .textFieldStyle(.plain)
                         .font(.title2)
                         .focused($isSearchFocused)
