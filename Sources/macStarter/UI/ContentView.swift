@@ -4,7 +4,6 @@ import AppKit
 struct ContentView: View {
     @ObservedObject var appService: AppService
     @State private var hoveredAppId: UUID?
-    @State private var selectedAppId: UUID?
     @State private var searchText = ""
     @FocusState private var isSearchFocused: Bool
     
@@ -57,26 +56,25 @@ struct ContentView: View {
                 .cornerRadius(16)
                 .padding(.horizontal, 24)
                 .padding(.top, 24)
-                .padding(.bottom, 24)
+                .padding(.bottom, 16)
                 
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 24) {
+                    LazyVStack(alignment: .leading, spacing: 16) {
                         ForEach(Array(displayApps.enumerated()), id: \.element.section) { index, section in
                             if !section.apps.isEmpty {
                                 VStack(alignment: .leading, spacing: 8) {
                                     // Remove text headers, replace with Divider for subsequent sections
                                     if index > 0 {
                                         Divider()
-                                            .background(Color.white.opacity(0.1))
+                                            .background(Color.white.opacity(0.05))
                                             .padding(.horizontal, 24)
                                             .padding(.bottom, 8)
                                     }
                                     
-                                    LazyVGrid(columns: columns, spacing: 16) {
+                                    LazyVGrid(columns: columns, spacing: 8) {
                                         ForEach(section.apps) { app in
                                             AppItemView(
                                                 app: app,
-                                                isSelected: selectedAppId == app.id,
                                                 isHovered: hoveredAppId == app.id
                                             )
                                             .onHover { isHovering in
@@ -101,13 +99,6 @@ struct ContentView: View {
                 RoundedRectangle(cornerRadius: 20)
                     .stroke(Color.white.opacity(0.1), lineWidth: 1)
             )
-            .onChange(of: selectedAppId) { newId in
-                if let newId = newId {
-                    withAnimation {
-                        proxy.scrollTo(newId, anchor: .center)
-                    }
-                }
-            }
         }
         .frame(minWidth: 1000, minHeight: 800)
         .background(EventMonitorView(onKeyDown: handleKeyDown))
@@ -115,10 +106,9 @@ struct ContentView: View {
             appService.scanApps()
             isSearchFocused = true
         }
-        .onChange(of: searchText) { _ in
-            if let first = flatAppList.first {
-                selectedAppId = first.id
-            }
+        .onAppear {
+            appService.scanApps()
+            isSearchFocused = true
         }
     }
     
@@ -130,56 +120,17 @@ struct ContentView: View {
     }
     
     private func handleKeyDown(_ event: NSEvent) -> Bool {
-        let apps = flatAppList
-        guard !apps.isEmpty else { return false }
-        
-        // Find current index
-        let currentIndex = apps.firstIndex { $0.id == selectedAppId } ?? -1
-        var nextIndex = currentIndex
-        
         // Escape Handling to hide window
         if event.keyCode == 53 { // ESC
             NSApp.hide(nil)
             return true
         }
-        
-        // Approximate column count for grid navigation
-        // Window width ~800, item width ~100+spacing -> approx 6-7 items per row
-        // Ideally we calculated this dynamically, but fixed estimate is okay for MVP
-        let columnsCount = 6 
-        switch event.keyCode {
-        case 123: // Left
-            nextIndex = max(0, currentIndex - 1)
-        case 124: // Right
-            nextIndex = min(apps.count - 1, currentIndex + 1)
-        case 125: // Down
-            nextIndex = min(apps.count - 1, currentIndex + columnsCount)
-        case 126: // Up
-            nextIndex = max(0, currentIndex - columnsCount)
-        case 36: // Enter
-            if let selected = selectedAppId, let app = apps.first(where: { $0.id == selected }) {
-                launchApp(app)
-                return true
-            }
-        default:
-            return false
-        }
-        if nextIndex != currentIndex {
-            // Clamp roughly
-            if nextIndex < 0 { nextIndex = 0 }
-            if nextIndex >= apps.count { nextIndex = apps.count - 1 }
-            
-            selectedAppId = apps[nextIndex].id
-            return true
-        }
-        
         return false
     }
 }
 
 struct AppItemView: View {
     let app: AppModel
-    let isSelected: Bool
     let isHovered: Bool
     
     var body: some View {
@@ -188,9 +139,8 @@ struct AppItemView: View {
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 80, height: 80) // Larger Icon
-                .shadow(radius: isSelected || isHovered ? 8 : 0)
-                .scaleEffect(isSelected || isHovered ? 1.1 : 1.0)
-                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
+                .shadow(radius: isHovered ? 8 : 0)
+                .scaleEffect(isHovered ? 1.1 : 1.0)
                 .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isHovered)
             
             Text(app.name)
@@ -198,17 +148,17 @@ struct AppItemView: View {
                 .lineLimit(1) // Force 1 line
                 .truncationMode(.tail)
                 .multilineTextAlignment(.center)
-                .foregroundColor(isSelected ? .white : .primary)
+                .foregroundColor(.primary)
                 .frame(height: 20, alignment: .top) // Reduced fixed height for single line
         }
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(isSelected ? Color.blue.opacity(0.4) : Color.clear)
+                .fill(Color.clear)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.white.opacity(isSelected ? 0.3 : 0), lineWidth: 1)
+                .stroke(Color.clear, lineWidth: 1)
         )
     }
 }
