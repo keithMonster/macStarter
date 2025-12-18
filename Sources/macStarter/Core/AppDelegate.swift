@@ -30,8 +30,30 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             
             if event.keyCode == 53 { // ESC
                 self.launcherWindow.orderOut(nil)
-                return nil // Consume event
+                return nil
             }
+            
+            // Intercept navigation keys
+            switch event.keyCode {
+            case 126: // Up
+                self.appService.moveSelection(direction: .up)
+                return nil
+            case 125: // Down
+                self.appService.moveSelection(direction: .down)
+                return nil
+            case 123: // Left
+                self.appService.moveSelection(direction: .left)
+                return nil
+            case 124: // Right
+                self.appService.moveSelection(direction: .right)
+                return nil
+            case 36: // Enter
+                self.appService.launchSelected()
+                return nil
+            default:
+                break
+            }
+            
             return event
         }
         

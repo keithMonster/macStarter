@@ -1,42 +1,14 @@
 import SwiftUI
 import AppKit
 
+@MainActor
 struct ContentView: View {
     @ObservedObject var appService: AppService
     @State private var hoveredAppId: UUID?
-    @State private var searchText = ""
-    @FocusState private var isSearchFocused: Bool
+    @FocusState private var isFocused: Bool
     
-    // Increased column width for larger icons
-    let columns = [
-        GridItem(.adaptive(minimum: 100))
-    ]
-    
-    // Combined list for display (Recent + Frequent + All) or Filtered
-    var displayApps: [(section: String, apps: [AppModel])] {
-        if !searchText.isEmpty {
-            let lowerQuery = searchText.lowercased()
-            let filtered = appService.apps.filter { app in
-                app.name.lowercased().contains(lowerQuery) ||
-                app.pinyin.contains(lowerQuery) ||
-                app.initials.contains(lowerQuery)
-            }
-            return [("搜索结果", filtered)]
-        } else {
-            var sections: [(String, [AppModel])] = []
-            if !appService.recentApps.isEmpty {
-                sections.append(("最近打开", appService.recentApps))
-            }
-            // "Frequent Apps" section removed as per request
-            sections.append(("所有应用", appService.apps))
-            return sections
-        }
-    }
-    
-    // Flattened list for keyboard navigation index
-    var flatAppList: [AppModel] {
-        displayApps.flatMap { $0.apps }
-    }
+    // Fixed columns for predictable keyboard navigation
+    let columns = Array(repeating: GridItem(.fixed(110), spacing: 8), count: 8)
     
     var body: some View {
         ScrollViewReader { proxy in
@@ -46,10 +18,10 @@ struct ContentView: View {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.gray)
                         .font(.system(size: 20))
-                    TextField("搜索...", text: $searchText)
+                    TextField("搜索...", text: $appService.searchText)
                         .textFieldStyle(.plain)
                         .font(.system(size: 24))
-                        .focused($isSearchFocused)
+                        .focused($isFocused)
                 }
                 .padding(12)
                 .background(Color.white.opacity(0.15))
@@ -60,10 +32,9 @@ struct ContentView: View {
                 
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 16) {
-                        ForEach(Array(displayApps.enumerated()), id: \.element.section) { index, section in
+                        ForEach(Array(appService.displayApps.enumerated()), id: \.element.section) { index, section in
                             if !section.apps.isEmpty {
                                 VStack(alignment: .leading, spacing: 8) {
-                                    // Remove text headers, replace with Divider for subsequent sections
                                     if index > 0 {
                                         Divider()
                                             .background(Color.white.opacity(0.05))
@@ -71,44 +42,57 @@ struct ContentView: View {
                                             .padding(.bottom, 8)
                                     }
                                     
-                                    LazyVGrid(columns: columns, spacing: 8) {
-                                        ForEach(section.apps) { app in
-                                            AppItemView(
-                                                app: app,
-                                                isHovered: hoveredAppId == app.id
-                                            )
-                                            .onHover { isHovering in
-                                                hoveredAppId = isHovering ? app.id : nil
-                                            }
-                                            .onTapGesture {
-                                                launchApp(app)
-                                            }
-                                            .id(app.id)
-                                        }
-                                    }
-                                    .padding(.horizontal, 24)
-                                }
-                            }
-                        }
-                    }
-                    .padding(.bottom, 40)
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 20))
-            .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
-            )
+                                     LazyVGrid(columns: columns, spacing: 16) {
+                                         ForEach(section.apps) { app in
+                                             let globalIndex = appService.flatAppList.firstIndex(where: { $0.id == app.id }) ?? 0
+                                             AppItemView(
+                                                 app: app,
+                                                 isHovered: hoveredAppId == app.id,
+                                                 isSelected: appService.selectedIndex == globalIndex
+                                             )
+                                             .onHover { isHovering in
+                                                 hoveredAppId = isHovering ? app.id : nil
+                                             }
+                                             .onTapGesture {
+                                                 launchApp(app)
+                                             }
+                                             .id(app.id)
+                                         }
+                                     }
+                                     .padding(.horizontal, 24)
+                                 }
+                             }
+                         }
+                     }
+                     .padding(.bottom, 40)
+                 }
+                 .onChange(of: appService.selectedIndex) { _, newIndex in
+                     if let newIndex = newIndex, newIndex < appService.flatAppList.count {
+                         proxy.scrollTo(appService.flatAppList[newIndex].id, anchor: .center)
+                     }
+                 }
+             }
+             .clipShape(RoundedRectangle(cornerRadius: 20))
+             .overlay(
+                 RoundedRectangle(cornerRadius: 20)
+                     .stroke(Color.white.opacity(0.1), lineWidth: 1)
+             )
         }
         .frame(minWidth: 1000, minHeight: 800)
-        .background(EventMonitorView(onKeyDown: handleKeyDown))
         .onAppear {
             appService.scanApps()
-            isSearchFocused = true
+            isFocused = appService.isSearchFocused
         }
-        .onAppear {
-            appService.scanApps()
-            isSearchFocused = true
+        .onChange(of: appService.isSearchFocused) { _, newValue in
+            isFocused = newValue
+        }
+        .onChange(of: isFocused) { _, newValue in
+            appService.isSearchFocused = newValue
+        }
+        .onChange(of: appService.searchText) { _, _ in
+            // When search text changes, reset focus to search bar and clear selection
+            appService.selectedIndex = nil
+            appService.isSearchFocused = true
         }
     }
     
@@ -116,75 +100,41 @@ struct ContentView: View {
         appService.recordLaunch(app: app)
         NSWorkspace.shared.open(app.url)
         NSApp.hide(nil)
-        searchText = ""
-    }
-    
-    private func handleKeyDown(_ event: NSEvent) -> Bool {
-        // Escape Handling to hide window
-        if event.keyCode == 53 { // ESC
-            NSApp.hide(nil)
-            return true
-        }
-        return false
+        appService.searchText = ""
     }
 }
 
 struct AppItemView: View {
     let app: AppModel
     let isHovered: Bool
+    let isSelected: Bool
     
     var body: some View {
         VStack(spacing: 8) {
             Image(nsImage: app.icon)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(width: 80, height: 80) // Larger Icon
-                .shadow(radius: isHovered ? 8 : 0)
-                .scaleEffect(isHovered ? 1.1 : 1.0)
-                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isHovered)
+                .frame(width: 80, height: 80)
+                .shadow(radius: isSelected ? 8 : (isHovered ? 4 : 0))
+                .scaleEffect(isSelected ? 1.05 : (isHovered ? 1.02 : 1.0))
+                .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isSelected || isHovered)
             
             Text(app.name)
-                .font(.system(size: 14, weight: .medium)) // Larger Font
-                .lineLimit(1) // Force 1 line
+                .font(.system(size: 14, weight: isSelected ? .bold : .medium))
+                .lineLimit(1)
                 .truncationMode(.tail)
                 .multilineTextAlignment(.center)
-                .foregroundColor(.primary)
-                .frame(height: 20, alignment: .top) // Reduced fixed height for single line
+                .foregroundColor(isSelected ? .white : (isHovered ? .primary : .primary.opacity(0.8)))
+                .frame(height: 20, alignment: .top)
         }
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.clear)
+                .fill(isSelected ? Color.white.opacity(0.12) : (isHovered ? Color.white.opacity(0.06) : Color.clear))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.clear, lineWidth: 1)
+                .stroke(isSelected ? Color.white.opacity(0.15) : Color.clear, lineWidth: 1)
         )
-    }
-}
-
-// invisible view to handle key events
-struct EventMonitorView: NSViewRepresentable {
-    var onKeyDown: (NSEvent) -> Bool
-    
-    func makeNSView(context: Context) -> NSView {
-        let view = KeyView()
-        view.onKeyDown = onKeyDown
-        return view
-    }
-    
-    func updateNSView(_ nsView: NSView, context: Context) {}
-    
-    class KeyView: NSView {
-        var onKeyDown: ((NSEvent) -> Bool)?
-        
-        override var acceptsFirstResponder: Bool { true }
-        
-        override func keyDown(with event: NSEvent) {
-            if let handler = onKeyDown, handler(event) {
-                return
-            }
-            super.keyDown(with: event)
-        }
     }
 }
