@@ -42,9 +42,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 self.appService.moveSelection(direction: .down)
                 return nil
             case 123: // Left
+                if self.appService.isSearchFocused { return event }
                 self.appService.moveSelection(direction: .left)
                 return nil
             case 124: // Right
+                if self.appService.isSearchFocused { return event }
                 self.appService.moveSelection(direction: .right)
                 return nil
             case 36: // Enter

@@ -52,6 +52,11 @@ struct ContentView: View {
                                              )
                                              .onHover { isHovering in
                                                  hoveredAppId = isHovering ? app.id : nil
+                                                 if isHovering {
+                                                     NSCursor.pointingHand.push()
+                                                 } else {
+                                                     NSCursor.pop()
+                                                 }
                                              }
                                              .onTapGesture {
                                                  launchApp(app)
