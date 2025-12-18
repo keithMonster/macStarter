@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 @MainActor
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var launcherWindow: LauncherWindow!
     var appService = AppService()
     
@@ -12,6 +12,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let windowRect = NSRect(x: (screenRect.width - 1000) / 2, y: (screenRect.height - 800) / 2, width: 1000, height: 800)
         
         launcherWindow = LauncherWindow(contentRect: windowRect, backing: .buffered, defer: false)
+        launcherWindow.delegate = self
         
         // Host SwiftUI Content
         let hostingView = NSHostingView(rootView: ContentView(appService: appService))
@@ -45,6 +46,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         launcherWindow.center()
         launcherWindow.orderFrontRegardless()
+    }
+    
+    func applicationDidResignActive(_ notification: Notification) {
+        // Hide the window when the application loses focus
+        launcherWindow.orderOut(nil)
+    }
+    
+    func windowDidResignKey(_ notification: Notification) {
+        // Hide the window when it loses keyboard focus
+        launcherWindow.orderOut(nil)
     }
     
     private var lastCommandTapTime: TimeInterval = 0
