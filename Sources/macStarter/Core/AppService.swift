@@ -163,7 +163,7 @@ class AppService: ObservableObject {
         
         lastLaunched.removeAll { $0 == idStr }
         lastLaunched.insert(idStr, at: 0)
-        if lastLaunched.count > 10 { lastLaunched.removeLast() }
+        if lastLaunched.count > 8 { lastLaunched.removeLast() }
         
         saveHistory()
         updateLists()
@@ -183,7 +183,7 @@ class AppService: ObservableObject {
         // Map paths back to current scan results
         let appMap = Dictionary(grouping: apps, by: { $0.url.path }).compactMapValues { $0.first }
         
-        self.recentApps = lastLaunched.compactMap { appMap[$0] }
+        self.recentApps = Array(lastLaunched.prefix(8).compactMap { appMap[$0] })
         
         let sortedByCount = launchHistory.sorted { $0.value > $1.value }
         self.frequentApps = sortedByCount.prefix(10).compactMap { appMap[$0.key] }
