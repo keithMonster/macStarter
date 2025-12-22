@@ -197,7 +197,9 @@ class AppService: ObservableObject {
             // Simpler approach: fixed paths
             let paths = [
                 "/Applications",
+                "/Applications/Utilities",
                 "/System/Applications",
+                "/System/Applications/Utilities",
                 URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Applications").path
             ]
             
