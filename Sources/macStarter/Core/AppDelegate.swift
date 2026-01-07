@@ -26,6 +26,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         
         // Local Event Monitor for Esc/Arrows when window is active
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            self?.lastCommandTapTime = 0
             guard let self = self, self.launcherWindow.isVisible else { return event }
             
             if event.keyCode == 53 { // ESC
@@ -59,6 +60,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return event
         }
         
+        // Global Monitor to reset timer on any key press
+        NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] _ in
+            self?.lastCommandTapTime = 0
+        }
+        
         // Global Monitor for double-tap Command
         NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
              self?.handleGlobalKey(event)
@@ -85,6 +91,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var lastCommandTapTime: TimeInterval = 0
     
     private func handleGlobalKey(_ event: NSEvent) {
+        // Only trigger on Command key press (Left: 55, Right: 54)
+        guard event.keyCode == 55 || event.keyCode == 54 else { return }
+        
         // Check if Command is pressed (and only Command)
         if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command {
             let now = Date().timeIntervalSince1970
